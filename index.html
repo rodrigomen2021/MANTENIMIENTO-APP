@@ -63,8 +63,35 @@
         </div>
     </header>
 
-    <!-- Contenedor Principal -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+    <!-- Pantalla de Acceso Restringido (Oculta los reportes hasta validar acceso) -->
+    <div id="access-gate" class="flex-grow flex items-center justify-center px-4 py-10">
+        <div class="bg-white max-w-md w-full rounded-2xl shadow-md border border-slate-200/90 p-6 sm:p-7 animate-fade-in">
+            <div class="w-12 h-12 rounded-2xl bg-slate-900 text-amber-400 flex items-center justify-center mb-4">
+                <i data-lucide="lock" class="w-6 h-6"></i>
+            </div>
+            <h2 class="text-xl font-bold text-slate-900">Bitácora Privada de Mantenimiento</h2>
+            <p class="text-sm text-slate-500 mt-1 mb-5">
+                Los reportes cargados son privados. Ingresa el código de acceso del equipo para cargar reportes o tu clave de administrador para gestionar y borrar registros.
+            </p>
+
+            <form id="access-gate-form" class="space-y-4">
+                <div>
+                    <label for="gate-access-code" class="block text-sm font-medium text-slate-700 mb-1">Código de Acceso</label>
+                    <input type="password" id="gate-access-code" required placeholder="Ingresa código de equipo o PIN admin"
+                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none transition">
+                    <p id="gate-error-msg" class="hidden text-xs text-red-600 font-medium mt-1.5">Código incorrecto. Verifica con tu supervisor.</p>
+                </div>
+
+                <button type="submit" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer">
+                    <i data-lucide="unlock" class="w-4 h-4"></i>
+                    <span>Ingresar a la Bitácora</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor Principal (Oculto hasta ingresar con código válido) -->
+    <main id="main-app-content" class="hidden flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         
         <!-- Tarjetas de Resumen / Estadísticas Rápidas -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -190,6 +217,17 @@
                         <i data-lucide="send" class="w-4 h-4"></i>
                         <span>Guardar Reporte en Bitácora</span>
                     </button>
+
+                    <!-- Aviso cuando el Modo Administrador está activo -->
+                    <div id="admin-form-lock-notice" class="hidden bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+                            <span>Modo Admin activo: carga bloqueada para evitar reportes accidentales.</span>
+                        </div>
+                        <button type="button" id="btn-exit-admin-from-form" class="font-semibold underline hover:text-amber-950 whitespace-nowrap cursor-pointer">
+                            Salir Admin
+                        </button>
+                    </div>
                 </form>
             </section>
 
@@ -260,7 +298,7 @@
                 <i data-lucide="shield-check" class="w-6 h-6"></i>
             </div>
             <h3 class="text-lg font-bold text-slate-900 mb-1">Acceso Administrador</h3>
-            <p class="text-sm text-slate-500 mb-4">Ingresa tu clave de administrador para editar o eliminar cualquier reporte de la bitácora.</p>
+            <p class="text-sm text-slate-500 mb-4">Ingresa tu clave de administrador para eliminar reportes cargados por error.</p>
             
             <form id="admin-form" class="space-y-4">
                 <div>
@@ -397,9 +435,10 @@
         lucide.createIcons();
 
         // =========================================================================
-        // CONFIGURACIÓN DE ADMINISTRADOR Y CONEXIÓN FIREBASE
+        // CONFIGURACIÓN DE ACCESO, ADMINISTRADOR Y CONEXIÓN FIREBASE
         // =========================================================================
         const CLAVE_ADMINISTRADOR = "1234"; // <-- Cambia este PIN por la clave secreta que tú elijas
+        const CODIGO_EQUIPO = "MANT2026";     // <-- Cambia este código por el que compartirás a tus técnicos
 
         const miConfiguracionFirebase = {
             apiKey: "AIzaSyCL2WqqY7tOtDi7OdtDFVEGilRhgATg9OM",
@@ -425,19 +464,19 @@
         // Estado global de la aplicación
         let currentUser = null;
         let technicianName = '';
+        let hasTeamAccess = localStorage.getItem('manteniapp_has_access') === 'true';
         let isAdmin = localStorage.getItem('manteniapp_is_admin') === 'true';
         let compressedImageDataUrl = null;
         let allReports = [];
         let reportToDeleteId = null;
+        let unsubscribeReports = null;
 
-        // Referencias DOM
-        const userDisplay = document.getElementById('current-user-display');
-        const userAvatar = document.getElementById('user-avatar');
-        const userModal = document.getElementById('user-modal');
-        const userForm = document.getElementById('user-form');
-        const inputUsername = document.getElementById('input-username');
-        const modalUserId = document.getElementById('modal-user-id');
-        const btnChangeUser = document.getElementById('btn-change-user');
+        // Referencias DOM de Acceso Restringido
+        const accessGate = document.getElementById('access-gate');
+        const mainAppContent = document.getElementById('main-app-content');
+        const accessGateForm = document.getElementById('access-gate-form');
+        const gateAccessCode = document.getElementById('gate-access-code');
+        const gateErrorMsg = document.getElementById('gate-error-msg');
 
         // Referencias DOM Admin y Edición
         const btnAdminToggle = document.getElementById('btn-admin-toggle');
@@ -448,58 +487,121 @@
         const inputAdminPin = document.getElementById('input-admin-pin');
         const cancelAdmin = document.getElementById('cancel-admin');
 
-        const editModal = document.getElementById('edit-modal');
-        const editForm = document.getElementById('edit-form');
-        const closeEditModal = document.getElementById('close-edit-modal');
-        const cancelEdit = document.getElementById('cancel-edit');
-        const saveEditBtn = document.getElementById('save-edit-btn');
-
         const dropZone = document.getElementById('drop-zone');
-        const photoInput = document.getElementById('photo-input');
-        const uploadPlaceholder = document.getElementById('upload-placeholder');
-        const imagePreviewContainer = document.getElementById('image-preview-container');
-        const imagePreview = document.getElementById('image-preview');
-        const btnRemovePhoto = document.getElementById('btn-remove-photo');
-
-        const maintenanceForm = document.getElementById('maintenance-form');
-        const btnSubmit = document.getElementById('btn-submit');
-        const reportsContainer = document.getElementById('reports-container');
-
-        const filterSearch = document.getElementById('filter-search');
-        const filterStatus = document.getElementById('filter-status');
-        const filterDate = document.getElementById('filter-date');
-
-        // Mostrar fecha de hoy en la etiqueta del formulario
-        const todayStr = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
-        document.getElementById('today-date-badge').textContent = todayStr;
-
-        // Actualizar interfaz según estado de Administrador
+        // Actualizar interfaz según estado de Acceso y Administrador
         function updateAdminUI() {
+            const isAuthorized = hasTeamAccess || isAdmin;
+
+            if (!isAuthorized) {
+                accessGate.classList.remove('hidden');
+                mainAppContent.classList.add('hidden');
+                adminBadge.classList.add('hidden');
+                btnAdminToggle.classList.remove('border-amber-500/60', 'bg-amber-500/10');
+                adminBtnText.textContent = 'Admin';
+                adminBtnText.classList.replace('text-amber-400', 'text-slate-300');
+                allReports = [];
+                if (typeof unsubscribeReports === 'function') {
+                    unsubscribeReports();
+                    unsubscribeReports = null;
+                }
+                lucide.createIcons();
+                return;
+            }
+
+            accessGate.classList.add('hidden');
+            mainAppContent.classList.remove('hidden');
+
+            const formControls = maintenanceForm.querySelectorAll('input, select, textarea');
+
             if (isAdmin) {
                 adminBadge.classList.remove('hidden');
                 btnAdminToggle.classList.add('border-amber-500/60', 'bg-amber-500/10');
                 adminBtnText.textContent = 'Salir Admin';
                 adminBtnText.classList.replace('text-slate-300', 'text-amber-400');
+
+                // Bloquear formulario de carga para evitar registros accidentales en modo supervisión
+                formControls.forEach(el => {
+                    el.disabled = true;
+                    el.classList.add('opacity-60', 'cursor-not-allowed');
+                });
+                dropZone.classList.add('opacity-60', 'pointer-events-none');
+                btnSubmit.disabled = true;
+                btnSubmit.classList.add('opacity-50', 'cursor-not-allowed');
+                adminFormLockNotice.classList.remove('hidden');
             } else {
                 adminBadge.classList.add('hidden');
                 btnAdminToggle.classList.remove('border-amber-500/60', 'bg-amber-500/10');
                 adminBtnText.textContent = 'Admin';
                 adminBtnText.classList.replace('text-amber-400', 'text-slate-300');
+
+                // Habilitar formulario de carga para que los técnicos solo carguen reportes
+                formControls.forEach(el => {
+                    el.disabled = false;
+                    el.classList.remove('opacity-60', 'cursor-not-allowed');
+                });
+                dropZone.classList.remove('opacity-60', 'pointer-events-none');
+                btnSubmit.disabled = false;
+                btnSubmit.classList.remove('opacity-50', 'cursor-not-allowed');
+                adminFormLockNotice.classList.add('hidden');
             }
+            lucide.createIcons();
             renderReports();
+        }
+
+        // Validar código de ingreso para evitar que cualquiera vea los reportes
+        accessGateForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = gateAccessCode.value.trim();
+            gateErrorMsg.classList.add('hidden');
+
+            if (code === CLAVE_ADMINISTRADOR) {
+                isAdmin = true;
+                hasTeamAccess = true;
+                localStorage.setItem('manteniapp_is_admin', 'true');
+                localStorage.setItem('manteniapp_has_access', 'true');
+                gateAccessCode.value = '';
+                updateAdminUI();
+                if (currentUser) {
+                    loadTechnicianProfile(currentUser.uid);
+                    subscribeToReports();
+                }
+                showToast("Acceso Administrador concedido");
+            } else if (code === CODIGO_EQUIPO) {
+                hasTeamAccess = true;
+                localStorage.setItem('manteniapp_has_access', 'true');
+                gateAccessCode.value = '';
+                updateAdminUI();
+                if (currentUser) {
+                    loadTechnicianProfile(currentUser.uid);
+                    subscribeToReports();
+                }
+                showToast("Acceso concedido a la bitácora");
+            } else {
+                gateErrorMsg.classList.remove('hidden');
+                gateAccessCode.value = '';
+                gateAccessCode.focus();
+            }
+        });
+
+        function disableAdminMode() {
+            isAdmin = false;
+            localStorage.removeItem('manteniapp_is_admin');
+            updateAdminUI();
+            showToast("Modo Administrador desactivado");
         }
 
         btnAdminToggle.addEventListener('click', () => {
             if (isAdmin) {
-                isAdmin = false;
-                localStorage.removeItem('manteniapp_is_admin');
-                updateAdminUI();
-                showToast("Modo Administrador desactivado");
+                disableAdminMode();
             } else {
                 inputAdminPin.value = '';
                 adminModal.classList.remove('hidden');
                 setTimeout(() => inputAdminPin.focus(), 100);
             }
+        });
+
+        btnExitAdminFromForm.addEventListener('click', () => {
+            disableAdminMode();
         });
 
         cancelAdmin.addEventListener('click', () => {
@@ -561,48 +663,11 @@
             modalUserId.textContent = user.uid;
 
             updateAdminUI();
-            await loadTechnicianProfile(user.uid);
-            subscribeToReports();
-        });
 
-        // Cargar o solicitar nombre del técnico
-        async function loadTechnicianProfile(uid) {
-            try {
-                const profileRef = doc(db, 'artifacts', appId, 'users', uid, 'profile', 'info');
-                const snap = await getDoc(profileRef);
-                if (snap.exists() && snap.data().name) {
-                    setTechnicianUI(snap.data().name);
-                } else {
-                    userModal.classList.remove('hidden');
-                }
-            } catch (error) {
-                console.error("Error cargando perfil:", error);
-                userModal.classList.remove('hidden');
-            }
-        }
-
-        function setTechnicianUI(name) {
-            technicianName = name;
-            userDisplay.textContent = name;
-            userAvatar.textContent = name.charAt(0).toUpperCase();
-        }
-
-        // Guardar nombre del técnico
-        userForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!currentUser) return;
-            const name = inputUsername.value.trim();
-            if (!name) return;
-
-            try {
-                const profileRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'info');
-                await setDoc(profileRef, { name: name, updatedAt: Date.now() });
-                setTechnicianUI(name);
-                userModal.classList.add('hidden');
-                showToast(`Bienvenido, ${name}`);
-            } catch (error) {
-                console.error("Error guardando nombre:", error);
-                showToast("No se pudo guardar el nombre", "error");
+            // Solo cargar perfil y suscribirse a reportes si el usuario ya validó acceso
+            if (hasTeamAccess || isAdmin) {
+                await loadTechnicianProfile(user.uid);
+                subscribeToReports();
             }
         });
 
@@ -678,6 +743,11 @@
             e.preventDefault();
             if (!currentUser) return;
 
+            if (isAdmin) {
+                showToast("Sal del Modo Administrador para cargar un reporte nuevo", "error");
+                return;
+            }
+
             if (!technicianName) {
                 userModal.classList.remove('hidden');
                 return;
@@ -730,10 +800,14 @@
 
         // 4. ESCUCHA EN TIEMPO REAL DE TODOS LOS REPORTES
         function subscribeToReports() {
-            if (!currentUser) return;
+            if (!currentUser || (!hasTeamAccess && !isAdmin)) return;
+            if (typeof unsubscribeReports === 'function') {
+                unsubscribeReports();
+            }
+
             const reportsCol = collection(db, 'artifacts', appId, 'public', 'data', 'maintenance_logs');
 
-            onSnapshot(reportsCol, (snapshot) => {
+            unsubscribeReports = onSnapshot(reportsCol, (snapshot) => {
                 const items = [];
                 snapshot.forEach((docSnap) => {
                     items.push({ id: docSnap.id, ...docSnap.data() });
@@ -815,22 +889,13 @@
                     statusBadge = `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Fuera de Servicio</span>`;
                 }
 
-                const isAuthor = currentUser && report.authorUid === currentUser.uid;
-                const canManage = isAuthor || isAdmin;
-
-                const actionButtons = canManage ? `
+                // Solo el Administrador con sesión activa puede borrar reportes
+                const actionButtons = isAdmin ? `
                     <div class="flex items-center space-x-1">
-                        <button onclick="window.openEditModal('${report.id}')" class="text-slate-400 hover:text-amber-600 p-1.5 rounded-lg hover:bg-amber-50 transition cursor-pointer" title="Corregir reporte">
-                            <i data-lucide="edit-3" class="w-4 h-4"></i>
-                        </button>
-                        <button onclick="window.promptDeleteReport('${report.id}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer" title="Eliminar reporte">
+                        <button onclick="window.promptDeleteReport('${report.id}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer" title="Eliminar reporte por error">
                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                         </button>
                     </div>
-                ` : '';
-
-                const editedBadge = report.editedByAdmin ? `
-                    <span class="text-[11px] text-amber-600 italic ml-1">(corregido)</span>
                 ` : '';
 
                 return `
@@ -867,8 +932,8 @@
                                         ${actionButtons}
                                     </div>
 
-                                    <p class="text-sm text-slate-600 mt-2 whitespace-pre-line leading-relaxed">
-                                        ${escapeHtml(report.description)} ${editedBadge}
+                                        <p class="text-sm text-slate-600 mt-2 whitespace-pre-line leading-relaxed">
+                                        ${escapeHtml(report.description)}
                                     </p>
                                 </div>
 
@@ -908,56 +973,6 @@
         filterStatus.addEventListener('change', renderReports);
         filterDate.addEventListener('change', renderReports);
 
-        // Funciones del Modal de Edición / Corrección
-        window.openEditModal = (reportId) => {
-            const report = allReports.find(r => r.id === reportId);
-            if (!report) return;
-            document.getElementById('edit-report-id').value = report.id;
-            document.getElementById('edit-report-author').textContent = `Reportado por: ${report.technicianName || 'Técnico'}`;
-            document.getElementById('edit-equipment').value = report.equipment || '';
-            document.getElementById('edit-type').value = report.type || 'Preventivo';
-            document.getElementById('edit-status').value = report.status || 'Operativo';
-            document.getElementById('edit-description').value = report.description || '';
-            editModal.classList.remove('hidden');
-        };
-
-        closeEditModal.addEventListener('click', () => editModal.classList.add('hidden'));
-        cancelEdit.addEventListener('click', () => editModal.classList.add('hidden'));
-
-        editForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            if (!currentUser) return;
-
-            const reportId = document.getElementById('edit-report-id').value;
-            const equipment = document.getElementById('edit-equipment').value.trim();
-            const type = document.getElementById('edit-type').value;
-            const status = document.getElementById('edit-status').value;
-            const description = document.getElementById('edit-description').value.trim();
-
-            saveEditBtn.disabled = true;
-            saveEditBtn.textContent = 'Guardando...';
-
-            try {
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'maintenance_logs', reportId);
-                await updateDoc(docRef, {
-                    equipment,
-                    type,
-                    status,
-                    description,
-                    editedByAdmin: true,
-                    updatedAt: Date.now()
-                });
-                editModal.classList.add('hidden');
-                showToast("Reporte corregido correctamente");
-            } catch (error) {
-                console.error("Error al corregir reporte:", error);
-                showToast("No se pudo guardar la corrección", "error");
-            } finally {
-                saveEditBtn.disabled = false;
-                saveEditBtn.textContent = 'Guardar Cambios';
-            }
-        });
-
         window.openLightbox = (reportId) => {
             const report = allReports.find(r => r.id === reportId);
             if (!report) return;
@@ -972,6 +987,10 @@
         });
 
         window.promptDeleteReport = (reportId) => {
+            if (!isAdmin) {
+                showToast("Solo el Administrador puede eliminar reportes", "error");
+                return;
+            }
             reportToDeleteId = reportId;
             document.getElementById('delete-modal').classList.remove('hidden');
         };
@@ -982,7 +1001,7 @@
         });
 
         document.getElementById('confirm-delete').addEventListener('click', async () => {
-            if (!reportToDeleteId || !currentUser) return;
+            if (!reportToDeleteId || !currentUser || !isAdmin) return;
             try {
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'maintenance_logs', reportToDeleteId);
                 await deleteDoc(docRef);
