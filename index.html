@@ -35,18 +35,28 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg sm:text-xl font-bold tracking-tight leading-none">ManteniApp</h1>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-bold tracking-tight leading-none">ManteniApp</h1>
+                        <span id="admin-badge" class="hidden px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-500 text-slate-900 rounded-md">
+                            Admin
+                        </span>
+                    </div>
                     <p class="text-xs text-slate-400 hidden sm:block">Control Diario y Evidencia Fotográfica</p>
                 </div>
             </div>
 
-            <!-- Perfil del Técnico Actual -->
-            <div class="flex items-center space-x-3">
+            <!-- Controles de Usuario y Modo Administrador -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <button id="btn-admin-toggle" class="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2.5 py-1.5 rounded-xl text-xs sm:text-sm transition cursor-pointer" title="Acceso Administrador">
+                    <i data-lucide="shield" id="admin-icon" class="w-4 h-4 text-slate-400"></i>
+                    <span id="admin-btn-text" class="hidden sm:inline font-medium text-slate-300">Admin</span>
+                </button>
+
                 <button id="btn-change-user" class="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-xl text-sm transition cursor-pointer" title="Cambiar nombre de técnico">
                     <div class="w-6 h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs" id="user-avatar">
                         ?
                     </div>
-                    <span id="current-user-display" class="font-medium max-w-[120px] sm:max-w-[180px] truncate">Cargando...</span>
+                    <span id="current-user-display" class="font-medium max-w-[100px] sm:max-w-[160px] truncate">Cargando...</span>
                     <i data-lucide="edit-2" class="w-3.5 h-3.5 text-slate-400"></i>
                 </button>
             </div>
@@ -243,6 +253,97 @@
         </div>
     </div>
 
+    <!-- Modal para Ingresar PIN de Administrador -->
+    <div id="admin-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-xl animate-fade-in">
+            <div class="w-12 h-12 rounded-2xl bg-slate-900 text-amber-400 flex items-center justify-center mb-4">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Acceso Administrador</h3>
+            <p class="text-sm text-slate-500 mb-4">Ingresa tu clave de administrador para editar o eliminar cualquier reporte de la bitácora.</p>
+            
+            <form id="admin-form" class="space-y-4">
+                <div>
+                    <label for="input-admin-pin" class="block text-sm font-medium text-slate-700 mb-1">Clave / PIN</label>
+                    <input type="password" id="input-admin-pin" required placeholder="••••" 
+                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-center tracking-widest font-bold focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="cancel-admin" class="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition cursor-pointer">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition cursor-pointer">
+                        Activar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Editar / Corregir Reporte -->
+    <div id="edit-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl animate-fade-in max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <i data-lucide="edit-3" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900 leading-tight">Corregir Reporte</h3>
+                        <p class="text-xs text-slate-500" id="edit-report-author">Técnico</p>
+                    </div>
+                </div>
+                <button type="button" id="close-edit-modal" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="edit-form" class="space-y-4">
+                <input type="hidden" id="edit-report-id">
+                <div>
+                    <label for="edit-equipment" class="block text-sm font-medium text-slate-700 mb-1">Equipo o Maquinaria</label>
+                    <input type="text" id="edit-equipment" required 
+                        class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="edit-type" class="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                        <select id="edit-type" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                            <option value="Preventivo">Preventivo</option>
+                            <option value="Correctivo">Correctivo</option>
+                            <option value="Inspección">Inspección Diaria</option>
+                            <option value="Limpieza">Limpieza / Lubricación</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="edit-status" class="block text-sm font-medium text-slate-700 mb-1">Estado Final</label>
+                        <select id="edit-status" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                            <option value="Operativo">🟢 Operativo</option>
+                            <option value="Observación">🟡 En Observación</option>
+                            <option value="Fuera de Servicio">🔴 Fuera de Servicio</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="edit-description" class="block text-sm font-medium text-slate-700 mb-1">Descripción corregida</label>
+                    <textarea id="edit-description" rows="4" required 
+                        class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none"></textarea>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" id="cancel-edit" class="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition cursor-pointer">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="save-edit-btn" class="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-xl transition cursor-pointer">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Modal para Ver Imagen en Grande -->
     <div id="lightbox-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <button id="close-lightbox" class="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-2.5 rounded-full transition cursor-pointer">
@@ -290,14 +391,16 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Inicializar iconos Lucide
         lucide.createIcons();
 
         // =========================================================================
-        // CONFIGURACIÓN DE CONEXIÓN (PROYECTO: mantenimiento-de-campo)
+        // CONFIGURACIÓN DE ADMINISTRADOR Y CONEXIÓN FIREBASE
         // =========================================================================
+        const CLAVE_ADMINISTRADOR = "1234"; // <-- Cambia este PIN por la clave secreta que tú elijas
+
         const miConfiguracionFirebase = {
             apiKey: "AIzaSyCL2WqqY7tOtDi7OdtDFVEGilRhgATg9OM",
             authDomain: "mantenimiento-de-campo.firebaseapp.com",
@@ -322,6 +425,7 @@
         // Estado global de la aplicación
         let currentUser = null;
         let technicianName = '';
+        let isAdmin = localStorage.getItem('manteniapp_is_admin') === 'true';
         let compressedImageDataUrl = null;
         let allReports = [];
         let reportToDeleteId = null;
@@ -334,6 +438,21 @@
         const inputUsername = document.getElementById('input-username');
         const modalUserId = document.getElementById('modal-user-id');
         const btnChangeUser = document.getElementById('btn-change-user');
+
+        // Referencias DOM Admin y Edición
+        const btnAdminToggle = document.getElementById('btn-admin-toggle');
+        const adminBadge = document.getElementById('admin-badge');
+        const adminBtnText = document.getElementById('admin-btn-text');
+        const adminModal = document.getElementById('admin-modal');
+        const adminForm = document.getElementById('admin-form');
+        const inputAdminPin = document.getElementById('input-admin-pin');
+        const cancelAdmin = document.getElementById('cancel-admin');
+
+        const editModal = document.getElementById('edit-modal');
+        const editForm = document.getElementById('edit-form');
+        const closeEditModal = document.getElementById('close-edit-modal');
+        const cancelEdit = document.getElementById('cancel-edit');
+        const saveEditBtn = document.getElementById('save-edit-btn');
 
         const dropZone = document.getElementById('drop-zone');
         const photoInput = document.getElementById('photo-input');
@@ -353,6 +472,54 @@
         // Mostrar fecha de hoy en la etiqueta del formulario
         const todayStr = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
         document.getElementById('today-date-badge').textContent = todayStr;
+
+        // Actualizar interfaz según estado de Administrador
+        function updateAdminUI() {
+            if (isAdmin) {
+                adminBadge.classList.remove('hidden');
+                btnAdminToggle.classList.add('border-amber-500/60', 'bg-amber-500/10');
+                adminBtnText.textContent = 'Salir Admin';
+                adminBtnText.classList.replace('text-slate-300', 'text-amber-400');
+            } else {
+                adminBadge.classList.add('hidden');
+                btnAdminToggle.classList.remove('border-amber-500/60', 'bg-amber-500/10');
+                adminBtnText.textContent = 'Admin';
+                adminBtnText.classList.replace('text-amber-400', 'text-slate-300');
+            }
+            renderReports();
+        }
+
+        btnAdminToggle.addEventListener('click', () => {
+            if (isAdmin) {
+                isAdmin = false;
+                localStorage.removeItem('manteniapp_is_admin');
+                updateAdminUI();
+                showToast("Modo Administrador desactivado");
+            } else {
+                inputAdminPin.value = '';
+                adminModal.classList.remove('hidden');
+                setTimeout(() => inputAdminPin.focus(), 100);
+            }
+        });
+
+        cancelAdmin.addEventListener('click', () => {
+            adminModal.classList.add('hidden');
+        });
+
+        adminForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (inputAdminPin.value === CLAVE_ADMINISTRADOR) {
+                isAdmin = true;
+                localStorage.setItem('manteniapp_is_admin', 'true');
+                adminModal.classList.add('hidden');
+                updateAdminUI();
+                showToast("Modo Administrador activado");
+            } else {
+                showToast("Clave de administrador incorrecta", "error");
+                inputAdminPin.value = '';
+                inputAdminPin.focus();
+            }
+        });
 
         // Sistema de notificaciones Toast
         function showToast(message, type = 'success') {
@@ -393,9 +560,8 @@
             currentUser = user;
             modalUserId.textContent = user.uid;
 
-            // Cargar perfil del técnico desde su ruta privada en Firestore
+            updateAdminUI();
             await loadTechnicianProfile(user.uid);
-            // Iniciar escucha en tiempo real de la bitácora compartida
             subscribeToReports();
         });
 
@@ -650,10 +816,21 @@
                 }
 
                 const isAuthor = currentUser && report.authorUid === currentUser.uid;
-                const deleteBtn = isAuthor ? `
-                    <button onclick="window.promptDeleteReport('${report.id}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer" title="Eliminar mi reporte">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
+                const canManage = isAuthor || isAdmin;
+
+                const actionButtons = canManage ? `
+                    <div class="flex items-center space-x-1">
+                        <button onclick="window.openEditModal('${report.id}')" class="text-slate-400 hover:text-amber-600 p-1.5 rounded-lg hover:bg-amber-50 transition cursor-pointer" title="Corregir reporte">
+                            <i data-lucide="edit-3" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="window.promptDeleteReport('${report.id}')" class="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition cursor-pointer" title="Eliminar reporte">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                ` : '';
+
+                const editedBadge = report.editedByAdmin ? `
+                    <span class="text-[11px] text-amber-600 italic ml-1">(corregido)</span>
                 ` : '';
 
                 return `
@@ -687,11 +864,11 @@
                                                 ${escapeHtml(report.equipment)}
                                             </h3>
                                         </div>
-                                        ${deleteBtn}
+                                        ${actionButtons}
                                     </div>
 
                                     <p class="text-sm text-slate-600 mt-2 whitespace-pre-line leading-relaxed">
-                                        ${escapeHtml(report.description)}
+                                        ${escapeHtml(report.description)} ${editedBadge}
                                     </p>
                                 </div>
 
@@ -730,6 +907,56 @@
         filterSearch.addEventListener('input', renderReports);
         filterStatus.addEventListener('change', renderReports);
         filterDate.addEventListener('change', renderReports);
+
+        // Funciones del Modal de Edición / Corrección
+        window.openEditModal = (reportId) => {
+            const report = allReports.find(r => r.id === reportId);
+            if (!report) return;
+            document.getElementById('edit-report-id').value = report.id;
+            document.getElementById('edit-report-author').textContent = `Reportado por: ${report.technicianName || 'Técnico'}`;
+            document.getElementById('edit-equipment').value = report.equipment || '';
+            document.getElementById('edit-type').value = report.type || 'Preventivo';
+            document.getElementById('edit-status').value = report.status || 'Operativo';
+            document.getElementById('edit-description').value = report.description || '';
+            editModal.classList.remove('hidden');
+        };
+
+        closeEditModal.addEventListener('click', () => editModal.classList.add('hidden'));
+        cancelEdit.addEventListener('click', () => editModal.classList.add('hidden'));
+
+        editForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const reportId = document.getElementById('edit-report-id').value;
+            const equipment = document.getElementById('edit-equipment').value.trim();
+            const type = document.getElementById('edit-type').value;
+            const status = document.getElementById('edit-status').value;
+            const description = document.getElementById('edit-description').value.trim();
+
+            saveEditBtn.disabled = true;
+            saveEditBtn.textContent = 'Guardando...';
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'maintenance_logs', reportId);
+                await updateDoc(docRef, {
+                    equipment,
+                    type,
+                    status,
+                    description,
+                    editedByAdmin: true,
+                    updatedAt: Date.now()
+                });
+                editModal.classList.add('hidden');
+                showToast("Reporte corregido correctamente");
+            } catch (error) {
+                console.error("Error al corregir reporte:", error);
+                showToast("No se pudo guardar la corrección", "error");
+            } finally {
+                saveEditBtn.disabled = false;
+                saveEditBtn.textContent = 'Guardar Cambios';
+            }
+        });
 
         window.openLightbox = (reportId) => {
             const report = allReports.find(r => r.id === reportId);
